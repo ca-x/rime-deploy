@@ -27,8 +27,8 @@ bool install_rime(void) {
         case PLATFORM_LINUX:
             // 检测包管理器
             if (file_exists("/usr/bin/apt")) {
-                if (execute_command("sudo apt install fcitx-rime -y") != 0) {
-                    log_error("Failed to install fcitx-rime");
+                if (execute_command("sudo apt install fcitx5-rime -y") != 0) {
+                    log_error("Failed to install fcitx5-rime");
                     return false;
                 }
             } else if (file_exists("/usr/bin/dnf")) {
@@ -36,9 +36,34 @@ bool install_rime(void) {
                     log_error("Failed to install rime-fcitx");
                     return false;
                 }
+            } else if (file_exists("/usr/bin/pacman")) {
+                // Arch Linux 支持
+                log_info("Detected Arch Linux");
+                log_info("Please install the input method framework and RIME according to your preference:");
+                log_info("\nFor Fcitx5 (Recommended):");
+                log_info("  sudo pacman -S fcitx5 fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-rime");
+                log_info("\nFor Fcitx4:");
+                log_info("  sudo pacman -S fcitx fcitx-configtool fcitx-rime");
+                log_info("\nFor IBus:");
+                log_info("  sudo pacman -S ibus ibus-rime");
+                log_info("\nAfter installation:");
+                log_info("1. Add input method configuration to ~/.xprofile or /etc/environment:");
+                log_info("   For Fcitx5:");
+                log_info("     GTK_IM_MODULE=fcitx");
+                log_info("     QT_IM_MODULE=fcitx");
+                log_info("     XMODIFIERS=@im=fcitx");
+                log_info("     SDL_IM_MODULE=fcitx");
+                log_info("2. Restart your system or re-login");
+                log_info("\nFor more details, visit: https://wiki.archlinux.org/title/Fcitx5");
+                return true;
             } else {
-                log_error("Unsupported Linux distribution");
-                return false;
+                log_error("Your Linux distribution is not directly supported");
+                log_info("Please visit https://rime.im for installation instructions");
+                log_info("You can also check the following resources:");
+                log_info("- Rime project: https://github.com/rime/home");
+                log_info("- Installation guide: https://github.com/rime/home/wiki/RimeWithIBus");
+                log_info("- User guide: https://github.com/rime/home/wiki/UserGuide");
+                return true;
             }
             break;
             
