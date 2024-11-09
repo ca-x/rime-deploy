@@ -14,7 +14,7 @@ void print_usage(void) {
 }
 
 void print_version(void) {
-    printf("rime-deploy version 1.0.0\n");
+    printf("rime-deploy version 1.0.1\n");
 }
 
 int main(int argc, char *argv[]) {

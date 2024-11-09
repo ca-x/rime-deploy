@@ -6,29 +6,67 @@ on:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
+    name: Build Release on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Windows builds
-          - os: windows-latest
-            artifact_name: rime-deploy-windows.exe
-            asset_name: rime-deploy-windows-x64.exe
-            
-          # macOS builds  
-          - os: macos-latest
-            artifact_name: rime-deploy-macos
-            asset_name: rime-deploy-macos-x64
-            
           # Linux builds
           - os: ubuntu-latest
-            artifact_name: rime-deploy-linux
+            arch: x64
+            artifact_name: rime-deploy-linux-x64
             asset_name: rime-deploy-linux-x64
+            cc: gcc
+          - os: ubuntu-latest
+            arch: arm64
+            artifact_name: rime-deploy-linux-arm64
+            asset_name: rime-deploy-linux-arm64
+            cc: aarch64-linux-gnu-gcc
+          - os: ubuntu-latest
+            arch: arm
+            artifact_name: rime-deploy-linux-arm
+            asset_name: rime-deploy-linux-arm
+            cc: arm-linux-gnueabihf-gcc
+          
+          # macOS builds
+          - os: macos-latest
+            arch: x64
+            artifact_name: rime-deploy-macos-x64
+            asset_name: rime-deploy-macos-x64
+            cc: clang
+          - os: macos-latest
+            arch: arm64
+            artifact_name: rime-deploy-macos-arm64
+            asset_name: rime-deploy-macos-arm64
+            cc: clang
+            
+          # Windows builds
+          - os: windows-latest
+            arch: x64
+            artifact_name: rime-deploy-windows-x64.exe
+            asset_name: rime-deploy-windows-x64.exe
+            cc: gcc
+          - os: windows-latest 
+            arch: arm64
+            artifact_name: rime-deploy-windows-arm64.exe
+            asset_name: rime-deploy-windows-arm64.exe
+            cc: gcc
+          - os: windows-latest
+            arch: arm
+            artifact_name: rime-deploy-windows-arm.exe
+            asset_name: rime-deploy-windows-arm.exe
+            cc: gcc
 
     steps:
       - uses: actions/checkout@v4
+      
+      # 设置 QEMU
+      - name: Set up QEMU
+        if: matrix.arch == 'arm64' || matrix.arch == 'arm'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
       
       - name: Setup Build Environment
         shell: bash
@@ -36,13 +74,30 @@ jobs:
           if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             sudo apt-get update
             sudo apt-get install -y build-essential
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              sudo apt-get install -y gcc-aarch64-linux-gnu
+            elif [ "${{ matrix.arch }}" = "arm" ]; then
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+            fi
           fi
-          
+      
       - name: Build
         shell: bash
+        env:
+          CC: ${{ matrix.cc }}
         run: |
-          make
-          mkdir -p artifacts
+          mkdir -p build artifacts
+          
+          if [ "${{ matrix.arch }}" = "arm64" ] || [ "${{ matrix.arch }}" = "arm" ]; then
+            if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+              make CC=${{ matrix.cc }}
+            else
+              make
+            fi
+          else
+            make
+          fi
+          
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp rime-deploy.exe artifacts/${{ matrix.artifact_name }}
           else
@@ -50,9 +105,44 @@ jobs:
             chmod +x artifacts/${{ matrix.artifact_name }}
           fi
           
+          # 创建压缩包
+          cd artifacts
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a -tzip ${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}
+          else
+            tar czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+          fi
+      
+      # 上传构建产物
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: artifacts/${{ matrix.artifact_name }}
+          files: |
+            artifacts/${{ matrix.asset_name }}*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  # 创建更新日志
+  changelog:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate Changelog
+        id: changelog
+        uses: github-changelog-generator/github-changelog-generator@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Update Release Notes
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          body_path: CHANGELOG.md
