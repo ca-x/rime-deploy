@@ -28,21 +28,23 @@ OBJS := $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 TARGET := rime-deploy$(EXE_EXT)
 
 # 默认目标
-.PHONY: all clean
+.PHONY: all clean dirs
 
-all: dirs $(TARGET)
+all: $(TARGET)
 
-dirs:
-	@$(MKDIR) $(BUILD_DIR)
-	@$(MKDIR) $(OBJ_DIR)
-	@$(MKDIR) $(BIN_DIR)
+# 创建目录（使用 -p 并忽略错误）
+$(BUILD_DIR) $(OBJ_DIR) $(BIN_DIR):
+	-$(MKDIR) "$@"
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+# 编译规则
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# 链接规则
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS) -o $@
 
+# 清理规则
 clean:
 	$(RM) $(BUILD_DIR)
 	$(RM) $(TARGET)
