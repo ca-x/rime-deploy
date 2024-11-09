@@ -68,7 +68,6 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
         run: |
-          mkdir -p build artifacts
           make CC=${{ matrix.cc }}
           
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
@@ -119,3 +118,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           body_path: CHANGELOG.md
+
+      # 跨平台创建目录
+      - name: Create directories (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          if not exist "build" md build
+          if not exist "artifacts" md artifacts
+          
+      - name: Create directories (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p build artifacts

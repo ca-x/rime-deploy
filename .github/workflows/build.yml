@@ -28,7 +28,7 @@ jobs:
             artifact_name: rime-deploy-linux-arm
             cc: arm-linux-gnueabihf-gcc
           
-          # macOS builds (native only)
+          # macOS builds
           - os: macos-latest
             arch: x64
             artifact_name: rime-deploy-macos-x64
@@ -38,7 +38,7 @@ jobs:
             artifact_name: rime-deploy-macos-arm64
             cc: clang
             
-          # Windows builds (native only)
+          # Windows builds
           - os: windows-latest
             arch: x64
             artifact_name: rime-deploy-windows-x64.exe
@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # 只在 Linux 上设置 QEMU
+      # 只在 Linux 上设置 QEMU 和交叉编译器
       - name: Install QEMU and cross-compilers (Linux)
         if: runner.os == 'Linux' && (matrix.arch == 'arm64' || matrix.arch == 'arm')
         run: |
@@ -58,13 +58,26 @@ jobs:
           elif [ "${{ matrix.arch }}" = "arm" ]; then
             sudo apt-get install -y gcc-arm-linux-gnueabihf
           fi
+
+      # 跨平台创建目录
+      - name: Create directories (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          if not exist "build" md build
+          if not exist "artifacts" md artifacts
+          
+      - name: Create directories (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p build artifacts
       
       - name: Build
         shell: bash
         env:
           CC: ${{ matrix.cc }}
         run: |
-          mkdir -p build artifacts
           make CC=${{ matrix.cc }}
           
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
