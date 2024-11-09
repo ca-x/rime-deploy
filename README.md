@@ -29,7 +29,7 @@ A command-line tool for deploying RIME Input Method Engine configurations, writt
 ```bash
 mkdir -p build
 make
-
+```
 ## reference
 
 - [rime-auto-deploy](https://github.com/Mark24Code/rime-auto-deploy)
