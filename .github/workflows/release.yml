@@ -29,7 +29,7 @@ jobs:
             asset_name: rime-deploy-linux-arm
             cc: arm-linux-gnueabihf-gcc
           
-          # macOS builds
+          # macOS builds (native only)
           - os: macos-latest
             arch: x64
             artifact_name: rime-deploy-macos-x64
@@ -41,44 +41,26 @@ jobs:
             asset_name: rime-deploy-macos-arm64
             cc: clang
             
-          # Windows builds
+          # Windows builds (native only)
           - os: windows-latest
             arch: x64
             artifact_name: rime-deploy-windows-x64.exe
             asset_name: rime-deploy-windows-x64.exe
             cc: gcc
-          - os: windows-latest 
-            arch: arm64
-            artifact_name: rime-deploy-windows-arm64.exe
-            asset_name: rime-deploy-windows-arm64.exe
-            cc: gcc
-          - os: windows-latest
-            arch: arm
-            artifact_name: rime-deploy-windows-arm.exe
-            asset_name: rime-deploy-windows-arm.exe
-            cc: gcc
 
     steps:
       - uses: actions/checkout@v4
       
-      # 设置 QEMU
-      - name: Set up QEMU
-        if: matrix.arch == 'arm64' || matrix.arch == 'arm'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
-      
-      - name: Setup Build Environment
-        shell: bash
+      # 只在 Linux 上设置 QEMU 和交叉编译器
+      - name: Install QEMU and cross-compilers (Linux)
+        if: runner.os == 'Linux' && (matrix.arch == 'arm64' || matrix.arch == 'arm')
         run: |
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            sudo apt-get update
-            sudo apt-get install -y build-essential
-            if [ "${{ matrix.arch }}" = "arm64" ]; then
-              sudo apt-get install -y gcc-aarch64-linux-gnu
-            elif [ "${{ matrix.arch }}" = "arm" ]; then
-              sudo apt-get install -y gcc-arm-linux-gnueabihf
-            fi
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          elif [ "${{ matrix.arch }}" = "arm" ]; then
+            sudo apt-get install -y gcc-arm-linux-gnueabihf
           fi
       
       - name: Build
@@ -87,16 +69,7 @@ jobs:
           CC: ${{ matrix.cc }}
         run: |
           mkdir -p build artifacts
-          
-          if [ "${{ matrix.arch }}" = "arm64" ] || [ "${{ matrix.arch }}" = "arm" ]; then
-            if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-              make CC=${{ matrix.cc }}
-            else
-              make
-            fi
-          else
-            make
-          fi
+          make CC=${{ matrix.cc }}
           
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp rime-deploy.exe artifacts/${{ matrix.artifact_name }}
@@ -113,7 +86,7 @@ jobs:
             tar czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
           fi
       
-      # 上传构建产物
+      # 上传构建产物到 release
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
         env:
@@ -136,7 +109,7 @@ jobs:
       
       - name: Generate Changelog
         id: changelog
-        uses: github-changelog-generator/github-changelog-generator@v1
+        uses: heinrichreimer/github-changelog-generator-action@v2.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           
